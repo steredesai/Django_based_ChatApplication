@@ -1,0 +1,21 @@
+{% extends "chat/base.html" %}
+{% block title %}Chat Rooms{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h3>Your Chat Rooms</h3>
+    <ul class="list-group">
+        {% for room in rooms %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{% url 'chat:chat_room' room.id %}">{{ room.name }}</a>
+                {% if room.created_by == user %}
+                    <form method="POST" action="{% url 'chat:delete_room' room.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'chat:create_room' %}" class="btn btn-primary mt-4">Create New Room</a>
+</div>
+{% endblock %}

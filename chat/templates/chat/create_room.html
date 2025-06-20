@@ -1,0 +1,24 @@
+{% extends "chat/base.html" %}
+{% block title %}Create Room{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h3>Create a New Chat Room</h3>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="roomName" class="form-label">Room Name:</label>
+            <input type="text" id="roomName" name="name" class="form-control" placeholder="Enter room name" required>
+        </div>
+        <div class="mb-3">
+            <label for="bots" class="form-label">Add Bots (Optional):</label>
+            <select id="bots" name="bots" class="form-control" multiple>
+                {% for bot in bots %}
+                    <option value="{{ bot.id }}">{{ bot.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Create Room</button>
+    </form>
+    <a href="{% url 'chat:chat_rooms' %}" class="btn btn-link">Back to Chat Rooms</a>
+</div>
+{% endblock %}

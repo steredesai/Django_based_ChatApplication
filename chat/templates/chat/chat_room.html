@@ -1,0 +1,146 @@
+{% extends "chat/base.html" %}
+{% block title %}Chat Room: {{ room.name }}{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body d-flex flex-column" style="height: 500px;">
+        <h3 class="card-title mb-3">Room: {{ room.name }}</h3>
+
+        <!-- Messages Container -->
+        <div id="messages-container" class="flex-grow-1 border rounded p-3 mb-3 overflow-auto" style="background-color: #f8f9fa;">
+            <ul id="messages" class="list-unstyled mb-0">
+                {% for message in messages %}
+                    <li class="mb-2">
+                        {% if message.user %}
+                            <div class="d-flex justify-content-{% if message.user == user %}end{% else %}start{% endif %}">
+                                <div class="bg-{% if message.user == user %}primary{% else %}light{% endif %} text-{% if message.user == user %}white{% else %}dark{% endif %} rounded p-2">
+                                    <strong>{{ message.user }}</strong>: {{ message.content }}
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="d-flex justify-content-start">
+                                <div class="bg-info text-white rounded p-2">
+                                    <strong>{{ message.bot }}</strong>: {{ message.content }}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% empty %}
+                    <li class="text-muted text-center">No messages yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Message Form -->
+        <form id="message-form" class="d-flex">
+            {% csrf_token %}
+            <input type="text" id="message-input" class="form-control me-2" placeholder="Type a message..." required>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const messagesContainer = document.getElementById('messages-container');
+    const messagesList = document.getElementById('messages');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    let lastMessageId = parseInt(messagesList.dataset.lastMessageId || "0");
+
+    // Function to scroll to the bottom
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Scroll to bottom initially
+    scrollToBottom();
+
+    // Function to append a new message to the bottom of the list
+    function appendMessage(message) {
+        const newMessage = document.createElement('li');
+        newMessage.classList.add('mb-2');
+
+        if (message.user) {
+            newMessage.innerHTML = `
+                <div class="d-flex justify-content-${message.user === "{{ user.username }}" ? "end" : "start"}">
+                    <div class="bg-${message.user === "{{ user.username }}" ? "primary" : "light"} text-${message.user === "{{ user.username }}" ? "white" : "dark"} rounded p-2">
+                        <strong>${message.user}</strong>: ${message.content}
+                    </div>
+                </div>`;
+        } else {
+            newMessage.innerHTML = `
+                <div class="d-flex justify-content-start">
+                    <div class="bg-info text-white rounded p-2">
+                        <strong>${message.bot}</strong>: ${message.content}
+                    </div>
+                </div>`;
+        }
+
+        messagesList.appendChild(newMessage);  // Append message at the bottom
+    }
+
+    // Function to send a new message
+    messageForm.onsubmit = function (event) {
+        event.preventDefault();
+
+        const content = messageInput.value.trim();
+        if (!content) {
+            alert('Message cannot be empty!');
+            return;  // Do not send empty messages
+        }
+
+        fetch(`/send/{{ room.id }}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken,
+            },
+            body: `content=${encodeURIComponent(content)}`
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    // Display error message
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    }
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                messageInput.value = '';  // Clear the input field
+            }
+        })
+        .catch(error => {
+            console.error('Error sending message:', error);
+        });
+    };
+
+    // Function to poll for new messages
+    function pollMessages() {
+        fetch(`/poll/{{ room.id }}/?last_message_id=${lastMessageId}`)
+            .then(response => response.json())
+            .then(data => {
+                data.messages.forEach(message => {
+                    appendMessage(message);  // Append each new message
+                    lastMessageId = message.id;  // Update last message ID
+                });
+
+                if (data.messages.length) {
+                    scrollToBottom();  // Scroll to the bottom if new messages are added
+                }
+
+                setTimeout(pollMessages, 1000);  // Poll again after 1 second
+            })
+            .catch(error => {
+                console.error('Error polling messages:', error);
+                setTimeout(pollMessages, 5000);  // Retry polling after 5 seconds in case of an error
+            });
+    }
+
+    // Start polling for messages
+    pollMessages();
+</script>
+{% endblock %}
